@@ -708,8 +708,8 @@ is written. If 'auth' is choosen the @code{slot} 3 is used.
 To write to a keyslot needs the smartcard admin pin. This is usally
 requested with pinentry. In the case of passing the password through
 loopback pinentry you have to provide a second password. This could
-be done with --passphrase-fds. The second specified fd should provide
-the admin pin.
+be done with --passphrase-fd. You can call --passphrase-fd/file
+multiple to pass the admin pin.
 
 
 @item --generate-key
@@ -3023,8 +3023,8 @@ passphrase.  Defaults to 1 repetition.
 @opindex passphrase-fd
 Read the passphrase from file descriptor @code{n}. Only the first line
 will be read from file descriptor @code{n}. If you use 0 for @code{n},
-the passphrase will be read from STDIN. This can only be used if only
-one passphrase is supplied.
+the passphrase will be read from STDIN. This can called multiple to
+pass multiple passphrases.
 
 Note that this passphrase is only used if the option @option{--batch}
 has also been given.  This is different from GnuPG version 1.x.
@@ -3034,7 +3034,8 @@ has also been given.  This is different from GnuPG version 1.x.
 Read the passphrase from file @code{file}. Only the first line will
 be read from file @code{file}. This can only be used if only one
 passphrase is supplied. Obviously, a passphrase stored in a file is
-of questionable security if other users can read this file. Don't use
+of questionable security if other users can read this file.
+This can called multiple to pass multiple passphrases.  Don't use
 this option if you can avoid it.
 Note that this passphrase is only used if the option @option{--batch}
 has also been given.  This is different from GnuPG version 1.x.
@@ -3043,8 +3044,9 @@ has also been given.  This is different from GnuPG version 1.x.
 @opindex passphrase
 Use @code{string} as the passphrase. This can only be used if only one
 passphrase is supplied. Obviously, this is of very questionable
-security on a multi-user system. Don't use this option if you can
-avoid it.
+security on a multi-user system. This can called multiple to
+pass multiple passphrases.
+Don't use this option if you can avoid it.
 Note that this passphrase is only used if the option @option{--batch}
 has also been given.  This is different from GnuPG version 1.x.
 

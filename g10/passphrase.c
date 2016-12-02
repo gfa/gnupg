@@ -43,7 +43,9 @@
 #include "call-agent.h"
 #include "../common/shareddefs.h"
 
-static char *fd_passwd = NULL;
+static char *fd_passwds[STATIC_PASSWORD_COUNT];
+static int   fd_passwd_idx = 0;
+static int   fd_passwd_req = 0;
 static char *next_pw = NULL;
 static char *last_pw = NULL;
 
@@ -102,7 +104,7 @@ encode_s2k_iterations (int iterations)
 int
 have_static_passphrase()
 {
-  return (!!fd_passwd
+  return (fd_passwd_idx > 0
           && (opt.batch || opt.pinentry_mode == PINENTRY_MODE_LOOPBACK));
 }
 
@@ -111,9 +113,14 @@ have_static_passphrase()
    be returned if no passphrase has been set; better use
    have_static_passphrase first.  */
 const char *
-get_static_passphrase (void)
+get_static_passphrase ()
 {
-  return fd_passwd;
+  int idx = fd_passwd_req++ % fd_passwd_idx;
+  if (fd_passwd_req > fd_passwd_idx)
+  {
+    log_info(_("get_static_passphrase did a wrap a round %d"), fd_passwd_req);
+  }
+  return fd_passwds[idx];
 }
 
 
@@ -154,14 +161,19 @@ get_last_passphrase()
 void
 set_passphrase_from_string(const char *pass)
 {
-  xfree (fd_passwd);
-  fd_passwd = xmalloc_secure(strlen(pass)+1);
-  strcpy (fd_passwd, pass);
+  if (fd_passwd_idx < sizeof(fd_passwds)/sizeof(fd_passwds[0]))
+  {
+    // xfree (fd_passwd);
+    fd_passwds[fd_passwd_idx] = xmalloc_secure(strlen(pass)+1);
+    strcpy (fd_passwds[fd_passwd_idx], pass);
+    ++fd_passwd_idx;
+  } else {
+    log_info(_("try to set too much passwords"));
+  }
 }
 
-
-void
-read_passphrase_from_fd( int fd )
+static void
+read_passphrase_from_fd( int fd)
 {
   int i, len;
   char *pw;
@@ -200,8 +212,22 @@ read_passphrase_from_fd( int fd )
   if (!opt.batch && opt.pinentry_mode != PINENTRY_MODE_LOOPBACK)
     tty_printf("\b\b\b   \n" );
 
-  xfree ( fd_passwd );
-  fd_passwd = pw;
+  set_passphrase_from_string(pw);
+  // wipe the pass password
+  for (i = strlen(pw)-1; i >= 0; --i) {
+    pw[i] = 'X';
+  }
+}
+
+
+void
+read_passphrase_from_fds( int *fds, int cnt )
+{
+  int i;
+  for(i = 0; i < cnt; ++i)
+  {
+      read_passphrase_from_fd(fds[i]);
+  }
 }
 
 
@@ -360,9 +386,10 @@ passphrase_to_dek (int cipher_algo, STRING2KEY *s2k,
     }
   else if ( have_static_passphrase () )
     {
+      const char *s = get_static_passphrase();
       /* Return the passphrase we have stored in FD_PASSWD. */
-      pw = xmalloc_secure ( strlen(fd_passwd)+1 );
-      strcpy ( pw, fd_passwd );
+      pw = xmalloc_secure ( strlen(s)+1 );
+      strcpy ( pw, s );
     }
   else
     {

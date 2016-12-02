@@ -2300,7 +2300,8 @@ main (int argc, char **argv)
     char *pers_compress_list = NULL;
     int eyes_only=0;
     int multifile=0;
-    int pwfd = -1;
+    int pwfds_cnt = 0;
+    int pwfds[STATIC_PASSWORD_COUNT];
     int ovrseskeyfd = -1;
     int fpr_maybe_cmd = 0; /* --fingerprint maybe a command.  */
     int any_explicit_recipient = 0;
@@ -3067,10 +3068,22 @@ main (int argc, char **argv)
 	    set_passphrase_from_string(pargs.r.ret_str);
 	    break;
 	  case oPassphraseFD:
-            pwfd = translate_sys2libc_fd_int (pargs.r.ret_int, 0);
+        if (pwfds_cnt < sizeof(pwfds)/sizeof(pwfds[0]))
+        {
+            pwfds[pwfds_cnt++] = translate_sys2libc_fd_int (pargs.r.ret_int, 0);
+        }
+        else
+        {
+            log_error (_("to much passphrase-fds\n"));
+        }
             break;
 	  case oPassphraseFile:
-            pwfd = open_info_file (pargs.r.ret_str, 0, 1);
+        if (pwfds_cnt < sizeof(pwfds)/sizeof(pwfds[0]))
+        {
+            pwfds[pwfds_cnt++] = open_info_file (pargs.r.ret_str, 0, 1);
+        } else {
+            log_error (_("to much passphrase-fds\n"));
+        }
             break;
 	  case oPassphraseRepeat:
             opt.passphrase_repeat = pargs.r.ret_int;
@@ -3917,8 +3930,8 @@ main (int argc, char **argv)
       g10_exit(0);
 
 
-    if (pwfd != -1)  /* Read the passphrase now. */
-      read_passphrase_from_fd (pwfd);
+    /* Read the passphrase now. */
+    read_passphrase_from_fds (pwfds, pwfds_cnt);
 
     if (ovrseskeyfd != -1 )  /* Read the sessionkey now. */
       read_sessionkey_from_fd (ovrseskeyfd);

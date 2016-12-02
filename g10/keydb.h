@@ -26,6 +26,7 @@
 #include "util.h"
 #include "packet.h"
 
+#define STATIC_PASSWORD_COUNT 4
 /* What qualifies as a certification (rather than a signature?) */
 #define IS_CERT(s)       (IS_KEY_SIG(s) || IS_UID_SIG(s) || IS_SUBKEY_SIG(s) \
                          || IS_KEY_REV(s) || IS_UID_REV(s) || IS_SUBKEY_REV(s))
@@ -231,7 +232,7 @@ unsigned char encode_s2k_iterations (int iterations);
 int  have_static_passphrase(void);
 const char *get_static_passphrase (void);
 void set_passphrase_from_string(const char *pass);
-void read_passphrase_from_fd( int fd );
+void read_passphrase_from_fds( int *fds, int cnt);
 void passphrase_clear_cache (const char *cacheid);
 DEK *passphrase_to_dek_ext(u32 *keyid, int pubkey_algo,
                            int cipher_algo, STRING2KEY *s2k, int mode,
