@@ -297,6 +297,8 @@ void keyedit_quick_sign (ctrl_t ctrl, const char *fpr,
                          strlist_t uids, strlist_t locusr, int local);
 void keyedit_quick_set_expire (ctrl_t ctrl,
                                const char *fpr, const char *expirestr);
+void keyedit_quick_keytocard (ctrl_t ctrl, const char *fpr,
+                              const char *slot_usage, const char *sm_serial);
 void show_basic_key_info (KBNODE keyblock);
 
 /*-- keygen.c --*/
@@ -482,6 +484,7 @@ void card_status (estream_t fp, char *serialno, size_t serialnobuflen);
 void card_edit (ctrl_t ctrl, strlist_t commands);
 gpg_error_t  card_generate_subkey (KBNODE pub_keyblock);
 int  card_store_subkey (KBNODE node, int use);
+int send_keytocard(PKT_public_key *pk, int keyno, const char *serialno);
 #endif
 
 #define S2K_DECODE_COUNT(_val) ((16ul + ((_val) & 15)) << (((_val) >> 4) + 6))

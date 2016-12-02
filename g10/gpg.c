@@ -124,6 +124,7 @@ enum cmd_and_opt_values
     aQuickAddKey,
     aQuickRevUid,
     aQuickSetExpire,
+    aQuickKeyToCard,
     aListConfig,
     aListGcryptConfig,
     aGPGConfList,
@@ -461,6 +462,9 @@ static ARGPARSE_OPTS opts[] = {
   ARGPARSE_c (aQuickSetExpire,  "quick-set-expire",
               N_("quickly set a new expiration date")),
   ARGPARSE_c (aFullKeygen,  "full-generate-key" ,
+  ARGPARSE_c (aFullKeygen,  "full-gen-key" ,
+  ARGPARSE_c (aQuickKeyToCard,  "quick-keytocard",
+              N_("send a secret key to a smartcard")),
               N_("full featured key pair generation")),
   ARGPARSE_c (aFullKeygen,  "full-gen-key", "@"),
   ARGPARSE_c (aGenRevoke, "generate-revocation",
@@ -2579,6 +2583,7 @@ main (int argc, char **argv)
 	  case aQuickAddKey:
 	  case aQuickRevUid:
 	  case aQuickSetExpire:
+	  case aQuickKeyToCard:
 	  case aExportOwnerTrust:
 	  case aImportOwnerTrust:
           case aRebuildKeydbCaches:
@@ -3993,6 +3998,7 @@ main (int argc, char **argv)
       case aQuickAddUid:
       case aQuickAddKey:
       case aQuickRevUid:
+      case aQuickKeyToCard:
       case aFullKeygen:
       case aKeygen:
       case aImport:
@@ -4421,6 +4427,26 @@ main (int argc, char **argv)
           uid = *argv++; argc--;
           uidtorev = *argv++; argc--;
           keyedit_quick_revuid (ctrl, uid, uidtorev);
+        }
+	break;
+      case aQuickKeyToCard:
+        {
+          const char *x_fpr, *x_slot_usage, *x_smartcard_serial;
+
+          if (argc < 1 || argc > 4)
+            wrong_args ("--quick-addkey FINGERPRINT (SLOT|USAGE) [SMARTCARDSERIAL]");
+          x_fpr = *argv++; argc--;
+          x_slot_usage = "";
+          x_smartcard_serial = "";
+          if (argc)
+            {
+              x_slot_usage = *argv++; argc--;
+              if (argc)
+                {
+                  x_smartcard_serial = *argv++; argc--;
+                }
+            }
+          keyedit_quick_keytocard (ctrl, x_fpr, x_slot_usage, x_smartcard_serial);
         }
 	break;
 

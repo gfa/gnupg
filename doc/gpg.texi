@@ -693,6 +693,25 @@ for the subkey.  Several formats are supported; commonly the ISO
 YYYY-MM-DD format is used.  The values ``never'', ``none'', or ``-''
 can be used for no expiration date.
 
+
+@item --quick-keytocard @code{fpr} (@code{slot}|@code{usage}) [@code{serial}]
+@opindex quick-keytocard
+Sends the key identified by the fingerprint @code{fpr} to the by
+@code{serial} identified smartcard. If @code{serial} is not set
+the first card will be used. The @code{serial} is the serialnumber
+of the smartcard. This number is found in "--card-status".
+The @code{slot} and @code{usage} specify the slot in the smartcard
+which should receive the choosen key. @code{slot} is just the number
+of the slot starting with 1. The @code{usage} maps if 'sign' is to
+@code{slot} 1. If @code{usage} is set to 'encr' the @code{slot} 2
+is written. If 'auth' is choosen the @code{slot} 3 is used.
+To write to a keyslot needs the smartcard admin pin. This is usally
+requested with pinentry. In the case of passing the password through
+loopback pinentry you have to provide a second password. This could
+be done with --passphrase-fds. The second specified fd should provide
+the admin pin.
+
+
 @item --generate-key
 @opindex generate-key
 @itemx --gen-key

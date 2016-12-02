@@ -3342,6 +3342,105 @@ keyedit_quick_addkey (ctrl_t ctrl, const char *fpr, const char *algostr,
   keydb_release (kdbhd);
 }
 
+int
+get_keyno_from_slot_usage(const char *slot_usage)
+{
+  int keyno = 1;
+  if (strcmp(slot_usage, "sign"))
+  {
+    keyno = 2;
+    if (strcmp(slot_usage, "encr"))
+    {
+      keyno = 3;
+      if (strcmp(slot_usage, "auth"))
+      {
+        keyno = atoi(slot_usage);
+      }
+    }
+  }
+  return keyno;
+}
+
+int
+is_keyno_matching_usage(int keyno, int usage)
+{
+  if (keyno == 1) {
+    if (!(usage & (PUBKEY_USAGE_SIG|PUBKEY_USAGE_CERT))) {
+      log_error (_("the key for slot 1 is not for signature or certification"));
+      return 0;
+    }
+  }
+  if (keyno == 2) {
+    if (!(usage & (PUBKEY_USAGE_ENC))) {
+      log_error (_("the key for slot 2 is not for encryption"));
+      return 0;
+    }
+  }
+  if (keyno == 3) {
+    if (!(usage & (PUBKEY_USAGE_SIG|PUBKEY_USAGE_AUTH))) {
+      log_error (_("the key for slot 1 is not for signature or authentication"));
+      return 0;
+    }
+  }
+  return 1;
+}
+/* Unattended send a key to a smartcard */
+void
+keyedit_quick_keytocard (ctrl_t ctrl, const char *fpr, const char *slot_usage,
+                      const char *serialno)
+{
+  gpg_error_t err;
+  kbnode_t keyblock;
+  KEYDB_HANDLE kdbhd;
+  KBNODE node = NULL;
+
+#ifdef HAVE_W32_SYSTEM
+  /* See keyedit_menu for why we need this.  */
+  check_trustdb_stale (ctrl);
+#endif
+
+  /* We require a fingerprint because only this uniquely identifies a
+   * key */
+  err = get_pubkey_byname (ctrl, NULL, NULL, fpr, &keyblock, &kdbhd, 1, 1);
+  if (err)
+    {
+      log_error (_("key \"%s\" not found: %s\n"), fpr, gpg_strerror (err));
+      goto leave;
+    }
+
+  for (node = keyblock; node; node = node->next)
+  {
+    if (PKT_PUBLIC_KEY == node->pkt->pkttype ||
+        PKT_PUBLIC_SUBKEY == node->pkt->pkttype ||
+        PKT_SECRET_KEY == node->pkt->pkttype)
+    {
+      PKT_public_key *pk = node->pkt->pkt.public_key;
+      char hexfpr[2*MAX_FINGERPRINT_LEN+1];
+      hexfingerprint (pk, hexfpr, sizeof hexfpr);
+      if (!strcmp(fpr, hexfpr))
+      {
+        int keyno = get_keyno_from_slot_usage(slot_usage);
+        if (!(1 <= keyno && keyno <= 3))
+        {
+          log_error (_("slot has to be 1,2,3 is %s"), slot_usage);
+          goto leave;
+        }
+        if (!is_keyno_matching_usage(keyno, pk->pubkey_usage))
+        {
+          goto leave;
+        }
+        if (send_keytocard(pk, keyno, serialno))
+        {
+          log_info(_("keytocard for %s to slot %u successful"), hexfpr, keyno);
+        }
+      }
+    }
+  }
+leave:
+  release_kbnode (keyblock);
+  keydb_release (kdbhd);
+}
+
 
 /* Unattended expiration setting function for the main key.
  *

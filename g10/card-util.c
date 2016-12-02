@@ -1628,6 +1628,68 @@ card_store_subkey (KBNODE node, int use)
   return okay;
 }
 
+int
+send_keytocard(PKT_public_key *pk, int keyno, const char *serialno) {
+  gnupg_isotime_t timebuf;
+  struct agent_card_info_s info;
+  unsigned int nbits;
+  gpg_error_t err = 0;
+  int rc = 0;
+  char *hexgrip = 0;
+  int okay = 0;
+
+  if (get_info_for_key_operation (&info))
+  {
+    log_error (_("get_info_for_key_operations: failed:%s"),
+               gpg_strerror (err));
+    goto leave;
+  }
+  if (serialno && *serialno && strcmp(info.serialno, serialno)) {
+    log_error (_("The card serial no does not match %s!=%s"), serialno,
+               info.serialno);
+    goto leave;
+  }
+  if (!info.extcap.ki)
+  {
+    log_error (_("The card does not support the import of keys"));
+    goto leave;
+  }
+  nbits = nbits_from_pk (pk);
+  if (!info.is_v2 && nbits != 1024)
+  {
+    log_error (_("You may only store a 1024 bit RSA key on the card"));
+    goto leave;
+  }
+  if (info.is_v2 && !info.extcap.aac
+    && info.key_attr[keyno-1].nbits != nbits)
+  {
+    log_error (_("Key does not match the card's capability. %d %d"), keyno, nbits);
+    goto leave;
+  }
+  if ((keyno == 1 && info.fpr1valid)
+      || (keyno == 2 && info.fpr2valid)
+      || (keyno == 3 && info.fpr3valid)) {
+    log_info (_("replace existing key in slot %d"), keyno);
+  }
+  if ((err = hexkeygrip_from_pk (pk, &hexgrip))) {
+    log_error (_("hexkeygrip_from_pk failed with %s"), gpg_strerror(err));
+    goto leave;
+  }
+  epoch2isotime (timebuf, (time_t)pk->timestamp);
+  if ((err = agent_keytocard (hexgrip, keyno, rc, info.serialno, timebuf))) {
+    log_error (_("agent_keytocard failed: %s\n"), gpg_strerror (rc));
+    if ((rc = agent_scd_learn (NULL, 1))) {
+      log_error (_("agent_scd_learn failed: %s\n"), gpg_strerror (rc));
+    }
+  } else {
+    okay = 1;
+  }
+leave:
+  xfree (hexgrip);
+  agent_release_card_info (&info);
+  return okay;
+}
+
 
 
 /* Direct sending of an hex encoded APDU with error printing.  */
