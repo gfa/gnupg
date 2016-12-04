@@ -4824,11 +4824,14 @@ main (int argc, char **argv)
 
       case aChangePIN:
         if (!argc)
-            change_pin (0,1);
-        else if (argc == 1)
+            change_pin (0 ,1);
+        else if (argc == 1 && '0' <= *argv[0] && *argv[0] <= '9')
             change_pin (atoi (*argv),1);
+        else if (argc >= 1 && (!strcmp("admin", argv[0]) ||
+                 !strcmp("user", argv[0]) || !strcmp("unblock", argv[0])))
+            quick_change_pin(argv[0], argc >= 2 ? argv[1] : NULL);
         else
-            wrong_args ("--change-pin [no]");
+            wrong_args ("--change-pin ([no]|[(user|admin|unblock) [serialno])");
         break;
 #endif /* ENABLE_CARD_SUPPORT*/
 

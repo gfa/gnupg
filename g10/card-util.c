@@ -194,6 +194,61 @@ change_pin (int unblock_v2, int allow_admin)
   agent_release_card_info (&info);
 }
 
+void
+quick_change_pin(const char *pin, const char *serialno)
+{
+  struct agent_card_info_s info;
+  int rc;
+
+  rc = agent_scd_learn (&info, 0);
+  if (rc)
+  {
+    log_error (_("OpenPGP card not available: %s\n"), gpg_strerror (rc));
+    return;
+  }
+  if (serialno && !info.serialno)
+  {
+    log_error (_("OpenPGP card has no serialno\n"));
+    goto leave;
+  }
+  if (serialno && strcmp(serialno, info.serialno))
+  {
+    log_error (_("OpenPGP card serialno not matching %s!=%s\n"),
+      serialno, info.serialno);
+    goto leave;
+  }
+  log_info (_("OpenPGP card no. %s detected\n"),
+              info.serialno? info.serialno : "[none]");
+
+  int pinid = -1;
+  if (!strcmp("user", pin))
+    {
+      pinid = 1;
+    }
+  else if (!strcmp("unblock", pin))
+    {
+      pinid = 101;
+    }
+  else if (!strcmp("admin", pin))
+    {
+      pinid = 3;
+    }
+  if (pinid >= 0)
+  {
+    agent_clear_pin_cache (info.serialno);
+    rc = agent_scd_change_pin (pinid, info.serialno);
+          write_sc_op_status (rc);
+    if (rc)
+      log_error("Error changing the PIN: %s\n", gpg_strerror(rc));
+    else
+      log_info("PIN changed: %s\n", pin);
+  } else {
+    log_error("Error unknown pin: %s\n", pin);
+  }
+leave:
+  agent_release_card_info (&info);
+}
+
 static const char *
 get_manufacturer (unsigned int no)
 {

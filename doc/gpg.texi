@@ -382,11 +382,17 @@ https://gnupg.org/documentation/howtos.html#GnuPG-cardHOWTO .
 @opindex card-status
 Show the content of the smart card.
 
-@item --change-pin
+@item --change-pin  {@code{admin}|@code{user}|@code{unblock}} {@code{serialno}}
 @opindex change-pin
 Present a menu to allow changing the PIN of a smartcard. This
 functionality is also available as the subcommand "passwd" with the
-@option{--edit-card} command.
+
+@option{--card-edit} command.
+If you pass @code{admin}, @code{user} or @code{unblock} to @option{--change-pin}
+than the specified key will change. This could be done in batch mode by setting
+@option{--passphrase-file} multiple for the old and the new password.
+If @code{serialno} is set the a check is, than the smartcard serialno is
+matching to the given.
 
 @item --delete-keys @code{name}
 @itemx --delete-keys @code{name}
