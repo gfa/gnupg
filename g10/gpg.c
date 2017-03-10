@@ -169,6 +169,7 @@ enum cmd_and_opt_values
     aCardStatus,
     aCardEdit,
     aChangePIN,
+    aChangeCARD,
     aPasswd,
     aServer,
     aTOFUPolicy,
@@ -505,6 +506,7 @@ static ARGPARSE_OPTS opts[] = {
   ARGPARSE_c (aCardEdit,   "edit-card",  N_("change data on a card")),
   ARGPARSE_c (aCardEdit,   "card-edit", "@"),
   ARGPARSE_c (aChangePIN,  "change-pin", N_("change a card's PIN")),
+  ARGPARSE_c (aChangeCARD, "change-card", N_("change a card's attributes")),
 #endif
   ARGPARSE_c (aListConfig, "list-config", "@"),
   ARGPARSE_c (aListGcryptConfig, "list-gcrypt-config", "@"),
@@ -2550,6 +2552,7 @@ main (int argc, char **argv)
           case aCardStatus:
           case aCardEdit:
           case aChangePIN:
+          case aChangeCARD:
 #endif /* ENABLE_CARD_SUPPORT*/
 	  case aListKeys:
 	  case aLocateKeys:
@@ -4020,6 +4023,7 @@ main (int argc, char **argv)
       case aDesigRevoke:
       case aCardEdit:
       case aChangePIN:
+      case aChangeCARD:
         migrate_secring (ctrl);
 	break;
       case aListKeys:
@@ -4446,7 +4450,7 @@ main (int argc, char **argv)
           const char *x_fpr, *x_slot_usage, *x_smartcard_serial;
 
           if (argc < 1 || argc > 4)
-            wrong_args ("--quick-addkey FINGERPRINT (SLOT|USAGE) [SMARTCARDSERIAL]");
+            wrong_args ("--quick-keytocard FINGERPRINT (SLOT|USAGE) [SMARTCARDSERIAL]");
           x_fpr = *argv++; argc--;
           x_slot_usage = "";
           x_smartcard_serial = "";
@@ -4816,9 +4820,22 @@ main (int argc, char **argv)
                 append_to_strlist (&sl, *argv);
             card_edit (ctrl, sl);
             free_strlist (sl);
-	}
+	      }
         else
           card_edit (ctrl, NULL);
+        break;
+
+      case aChangeCARD:
+        if (argc >= 2)
+        {
+          if (quick_change_card(argv, argc)) {
+            wrong_args ("--change-card [name|language|sex|url|login] values [serialno])");
+          }
+        }
+        else
+        {
+          wrong_args ("--change-card [name|language|sex|url|login] values [serialno])");
+        }
         break;
 
       case aChangePIN:

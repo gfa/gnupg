@@ -481,6 +481,7 @@ gpg_error_t gpg_proxy_pinentry_notify (ctrl_t ctrl,
 /*-- card-util.c --*/
 void change_pin (int no, int allow_admin);
 void quick_change_pin (const char *user, const char *serialno);
+int  quick_change_card (char **argv, int argc);
 void card_status (estream_t fp, char *serialno, size_t serialnobuflen);
 void card_edit (ctrl_t ctrl, strlist_t commands);
 gpg_error_t  card_generate_subkey (KBNODE pub_keyblock);

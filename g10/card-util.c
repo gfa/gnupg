@@ -194,31 +194,40 @@ change_pin (int unblock_v2, int allow_admin)
   agent_release_card_info (&info);
 }
 
+static int check_serialno(const char *serialno, struct agent_card_info_s *info) {
+  int rc;
+
+  rc = agent_scd_learn (info, 0);
+  if (rc)
+  {
+    log_error (_("OpenPGP card not available: %s\n"), gpg_strerror (rc));
+    return 0;
+  }
+  if (serialno && !info->serialno)
+  {
+    log_error (_("OpenPGP card has no serialno\n"));
+    return 0;
+  }
+  if (serialno && strcmp(serialno, info->serialno))
+  {
+    log_error (_("OpenPGP card serialno not matching %s!=%s\n"),
+      serialno, info->serialno);
+    return 0;
+  }
+  log_info (_("OpenPGP card no. %s detected\n"),
+              info->serialno? info->serialno : "[none]");
+  return 1;
+}
+
+
 void
 quick_change_pin(const char *pin, const char *serialno)
 {
   struct agent_card_info_s info;
-  int rc;
-
-  rc = agent_scd_learn (&info, 0);
-  if (rc)
+  if (!check_serialno(serialno, &info))
   {
-    log_error (_("OpenPGP card not available: %s\n"), gpg_strerror (rc));
-    return;
-  }
-  if (serialno && !info.serialno)
-  {
-    log_error (_("OpenPGP card has no serialno\n"));
     goto leave;
   }
-  if (serialno && strcmp(serialno, info.serialno))
-  {
-    log_error (_("OpenPGP card serialno not matching %s!=%s\n"),
-      serialno, info.serialno);
-    goto leave;
-  }
-  log_info (_("OpenPGP card no. %s detected\n"),
-              info.serialno? info.serialno : "[none]");
 
   int pinid = -1;
   if (!strcmp("user", pin))
@@ -235,6 +244,7 @@ quick_change_pin(const char *pin, const char *serialno)
     }
   if (pinid >= 0)
   {
+    int rc;
     agent_clear_pin_cache (info.serialno);
     rc = agent_scd_change_pin (pinid, info.serialno);
           write_sc_op_status (rc);
@@ -710,30 +720,17 @@ get_one_name (const char *prompt1, const char *prompt2)
     }
 }
 
-
-
-static int
-change_name (void)
+char *build_isoname(const char *surname, const char *givenname)
 {
-  char *surname = NULL, *givenname = NULL;
-  char *isoname, *p;
-  int rc;
-
-  surname = get_one_name ("keygen.smartcard.surname",
-                                    _("Cardholder's surname: "));
-  givenname = get_one_name ("keygen.smartcard.givenname",
-                                       _("Cardholder's given name: "));
+  char *isoname;
+  char *p;
   if (!surname || !givenname || (!*surname && !*givenname))
     {
-      xfree (surname);
-      xfree (givenname);
-      return -1; /*canceled*/
+      return 0;
     }
 
   isoname = xmalloc ( strlen (surname) + 2 + strlen (givenname) + 1);
   strcpy (stpcpy (stpcpy (isoname, surname), "<<"), givenname);
-  xfree (surname);
-  xfree (givenname);
   for (p=isoname; *p; p++)
     if (*p == ' ')
       *p = '<';
@@ -743,13 +740,120 @@ change_name (void)
       tty_printf (_("Error: Combined name too long "
                     "(limit is %d characters).\n"), 39);
       xfree (isoname);
+      return 0;
+    }
+  return isoname;
+}
+
+int quick_change_card(char **argv, int argc)
+{
+  struct agent_card_info_s info;
+  if (argc < 2)
+  {
+    log_error ("not enough parameter\n");
+    return 1;
+  }
+  const char *action;
+  const char *value;
+  char *tofree = NULL;
+  const char *serialno = NULL;
+  if (!strcmp(argv[0], "name"))
+  {
+    if (argc >= 4)
+    {
+      serialno = argv[3];
+    }
+    value = tofree = build_isoname(argv[1], argv[2]);
+    action = "DISP-NAME";
+  }
+  else if (!strcmp(argv[0], "language"))
+  {
+    if (argc >= 3)
+    {
+      serialno = argv[2];
+    }
+    value = argv[1];
+    action = "DISP-LANG";
+  }
+  else if (!strcmp(argv[0], "sex"))
+  {
+    if (argc >= 3)
+    {
+      serialno = argv[2];
+    }
+    value = argv[1];
+    action = "DISP-SEX";
+  }
+  else if (!strcmp(argv[0], "url"))
+  {
+    if (argc >= 3)
+    {
+      serialno = argv[2];
+    }
+    value = argv[1];
+    action = "PUBKEY-URL";
+  }
+  else if (!strcmp(argv[0], "login"))
+  {
+    if (argc >= 3)
+    {
+      serialno = argv[2];
+    }
+    value = argv[1];
+    action = "LOGIN-DATA";
+  }
+  else
+  {
+    log_error ("unknown attribute name %s\n", argv[0]);
+    if (tofree)
+    {
+      xfree (tofree);
+    }
+    return 1;
+  }
+  int rc;
+  if (serialno)
+  {
+    rc = check_serialno(serialno , &info);
+    agent_release_card_info (&info);
+    if (rc != 1) {
+      log_error ("card serialno not found %s\n", serialno);
+      if (tofree)
+      {
+        xfree (tofree);
+      }
       return -1;
     }
+  }
+  rc = agent_scd_setattr (action, value, strlen (value), NULL );
+  if (rc)
+  {
+    log_error ("error setting %s: %s\n", action, gpg_strerror (rc));
+  }
+  if (tofree)
+  {
+    xfree (tofree);
+  }
+  return rc;
+}
 
+static int
+change_name (void)
+{
+  char *surname = NULL, *givenname = NULL;
+  char *isoname;
+  int rc = -1;
+
+  surname = get_one_name ("keygen.smartcard.surname",
+                                    _("Cardholder's surname: "));
+  givenname = get_one_name ("keygen.smartcard.givenname",
+                                       _("Cardholder's given name: "));
+  isoname = build_isoname(surname, givenname);
+  xfree(surname);
+  xfree(givenname);
   rc = agent_scd_setattr ("DISP-NAME", isoname, strlen (isoname), NULL );
   if (rc)
-    log_error ("error setting Name: %s\n", gpg_strerror (rc));
-
+    log_error ("error setting NAME: %s\n", gpg_strerror (rc));
   xfree (isoname);
   return rc;
 }
@@ -1732,7 +1836,7 @@ send_keytocard(PKT_public_key *pk, int keyno, const char *serialno) {
   }
   epoch2isotime (timebuf, (time_t)pk->timestamp);
   if ((err = agent_keytocard (hexgrip, keyno, rc, info.serialno, timebuf))) {
-    log_error (_("agent_keytocard failed: %s\n"), gpg_strerror (rc));
+    log_error (_("agent_keytocard failed: %s\n"), gpg_strerror (err));
     if ((rc = agent_scd_learn (NULL, 1))) {
       log_error (_("agent_scd_learn failed: %s\n"), gpg_strerror (rc));
     }
